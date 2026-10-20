@@ -6,6 +6,10 @@ Everything runs from one 9V battery, except the bonus slide, which needs 5V.
 
 ## View the deck
 
+**Online:** https://ricklon.github.io/breadboarding-workshop-2026/ (GitHub Pages, from `main`)
+
+**Locally:**
+
 ```sh
 python3 -m http.server 8765
 # open http://localhost:8765/
