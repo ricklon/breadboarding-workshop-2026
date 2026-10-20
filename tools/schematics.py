@@ -311,6 +311,121 @@ def motor():
     save(d, "motor")
 
 
+# ---------------------------------------------------------------- bonus: debounce
+
+def debounce():
+    """Count button bounces. Each rising edge on SRCLK shifts another 1 into the 74HC595,
+    so the number of lit LEDs is the number of edges the button made. Move the jumper
+    from RAW to CLEAN to send the button through an RC filter and a 74HC14 Schmitt trigger."""
+    import schemdraw.logic as logic
+    d = schemdraw.Drawing(show=False)
+    # left pins are listed bottom to top
+    ic = d.add(elm.Ic(pins=[elm.IcPin(name="OE", side="left", pin="13"),
+                            elm.IcPin(name="SRCLR", side="left", pin="10"),
+                            elm.IcPin(name="RCLK", side="left", pin="12"),
+                            elm.IcPin(name="SRCLK", side="left", pin="11"),
+                            elm.IcPin(name="SER", side="left", pin="14"),
+                            elm.IcPin(name="QA–QH", side="right", pin="15, 1–7", anchorname="Q")],
+                      pinspacing=1.2, edgepadW=3.2, label="74HC595").at((14, 0)))
+    # SER high: every clock shifts in a 1
+    d += elm.Line().at(ic.SER).left().length(1)
+    d += elm.Vdd().label("+5V")
+    # OE low: outputs always on
+    d += elm.Line().at(ic.OE).left().length(0.6)
+    d += elm.Ground()
+    # RCLK tied to SRCLK so the LEDs update on every clock
+    d += elm.Line().at(ic.RCLK).left().length(0.8).dot()
+    d += elm.Line().up().toy(ic.SRCLK[1]).dot()
+    clk = d.here
+    d += elm.Line().right().to(ic.SRCLK)
+    # SRCLR (active low): S2 clears the count, 10k holds it high
+    d += elm.Line().at(ic.SRCLR).left().length(3).dot()
+    clr = d.here
+    d += elm.Button().down().length(2.4).label("S2 reset", loc="top")
+    d += elm.Ground()
+    d += elm.Resistor().at(clr).left().length(2.4).label("10kΩ", loc="bot")
+    d += elm.Vdd().label("+5V")
+    # Outputs: 8 LEDs, one drawn
+    d += elm.Line().at(ic.Q).right().length(1)
+    d += elm.Resistor().right().label("330Ω")
+    d += led().down().length(2.5).label("LED ×8", loc="bot")
+    d += elm.Ground()
+
+    # Input: S1 with 10k pull-up
+    bx = clk[0] - 11
+    d += elm.Vdd().at((bx, clk[1] + 3.4)).label("+5V")
+    d += elm.Resistor().down().length(1.6).label("10kΩ", loc="bot")
+    d += elm.Dot()
+    a = d.here
+    d += elm.Button().down().length(1.8).label("S1", loc="bot")
+    d += elm.Ground()
+    d += elm.Line().at(a).right().length(1).dot()
+    a2 = d.here
+    # CLEAN path: RC filter then 74HC14
+    d += elm.Resistor().right().length(2.4).label("10kΩ").dot()
+    b = d.here
+    d += elm.Capacitor(polar=True).down().length(1.8).label("10µF", loc="bot")
+    d += elm.Ground()
+    d += elm.Line().at(b).right().length(1.2)
+    d += logic.SchmittNot().right().label("74HC14", loc="top")
+    d += elm.Line().right().length(0.8).dot()
+    clean = d.here
+    d += elm.Label().at((clean[0], clean[1] + 0.45)).label("CLEAN", fontsize=12, color=GREEN)
+    # RAW path: straight from the button
+    d += elm.Line().at(a2).up().length(1.4)
+    d += elm.Line().right().tox(clean[0]).dot()
+    raw = d.here
+    d += elm.Label().at((raw[0], raw[1] + 0.45)).label("RAW", fontsize=12, color=RED)
+    # jumper: one wire picks RAW or CLEAN
+    d += elm.Line().at((clk[0] - 2.2, clk[1])).right().tox(clk[0]).dot()
+    j = (clk[0] - 2.2, clk[1])
+    d += elm.Dot(open=True).at(j)
+    d += elm.Line(ls="--", color=GREEN).at(j).to(clean)
+    d += elm.Line(ls=":", color=RED).at(j).to(raw)
+    d += elm.Label().at((j[0] - 0.2, j[1] - 0.6)).label("jumper", fontsize=12)
+    save(d, "debounce")
+
+
+# ---------------------------------------------------------------- glossary
+
+def glossary():
+    """One small drawing per symbol for the glossary slide."""
+    import schemdraw.logic as logic
+    os.makedirs(os.path.join(OUT, "glossary"), exist_ok=True)
+
+    def one(name, *els):
+        d = schemdraw.Drawing(show=False)
+        for e in els:
+            d += e
+        save(d, "glossary/" + name)
+
+    one("resistor", elm.Resistor().right())
+    one("potentiometer", elm.Potentiometer().right())
+    one("capacitor", elm.Capacitor().right())
+    one("capacitor-electrolytic", elm.Capacitor(polar=True).right())
+    one("diode", elm.Diode().right())
+    one("led", elm.LED(fill=RED).right())
+    one("battery", elm.Battery().right().reverse())
+    one("ground", elm.Line().down().length(1), elm.Ground())
+    one("switch", elm.Switch().right())
+    one("button", elm.Button().right())
+    one("reed-switch", elm.SwitchReed().right())
+    one("npn", elm.BjtNpn(circle=True))
+    one("motor", elm.Motor().right())
+    one("schmitt", logic.SchmittNot().right())
+    one("ic", elm.Ic(pins=[elm.IcPin(side="left"), elm.IcPin(side="left"),
+                           elm.IcPin(side="right"), elm.IcPin(side="right")], size=(1.6, 2)))
+    d = schemdraw.Drawing(show=False)
+    d += elm.Line().right().length(3)
+    d += elm.Line().at((1.5, 1.2)).down().length(1.2).dot()
+    save(d, "glossary/junction")
+    d = schemdraw.Drawing(show=False)
+    d += elm.Line().right().length(3)
+    d += elm.Line().at((1.5, 1.2)).down().length(2.4)
+    save(d, "glossary/crossing")
+    one("supply", elm.Vdd().label("+5V"), elm.Line().down().length(1.2))
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     symbols()
@@ -329,4 +444,6 @@ if __name__ == "__main__":
     hall()
     transistor()
     motor()
+    debounce()
+    glossary()
     print("wrote", len(os.listdir(OUT)), "files to", os.path.abspath(OUT))
